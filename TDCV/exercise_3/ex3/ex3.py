@@ -2,6 +2,13 @@
 
 import numpy as np
 import tensorflow as tf
+import quaternion
+from matplotlib import pyplot as plt
+from functions import *
 
-a = np.zeros([2,2])
-print(a)
+# generate database set Sdb
+Sdb, Pdb = generate_Sdb()
+
+# generate training set Strain
+
+
