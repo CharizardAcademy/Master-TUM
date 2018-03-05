@@ -7,8 +7,8 @@ from matplotlib import pyplot as plt
 from functions import *
 
 # generate database set Sdb
-Sdb, Pdb = generate_Sdb()
+#Sdb, Pdb = generate_Sdb()
 
-# generate training set Strain
+Strain = generate_Strain()
 
-
+print(len(Strain))
