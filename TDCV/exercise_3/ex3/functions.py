@@ -3,12 +3,16 @@
 import numpy as np
 import cv2
 import quaternion
+import random
+
 
 # read images from folder
 def read_images(path):
     image_list = []
     for i in range(0,267):
         image = cv2.imread(path + "coarse" + str(i)+".png")
+        #image = image - np.mean(image)
+        #image = image/np.std(image,0,1)
         image_list.append(image)
     return image_list
 
@@ -25,8 +29,8 @@ def read_poses(file):
             qsub = line.split()
             for i in range(0, len(qsub)):
                 qsub[i] = float(qsub[i])
-            quat = np.quaternion(qsub[0], qsub[1], qsub[2], qsub[3])
-            q.append(quat)
+            q.append(qsub)
+    #q = np.array(q)
     return q
 
 
@@ -44,6 +48,8 @@ def read_selected_images(index,path):
     image_list = []
     for i in index:
         image = cv2.imread(path + "real" + str(i)+".png")
+        #image = image - np.mean(image)
+        #image = image / np.std(image, 0, 1)
         image_list.append(image)
     return image_list
 
@@ -149,6 +155,69 @@ def generate_Stest():
     Ptest = [test_ape_pose,test_benchvise_pose,test_cam_pose,test_cat_pose,test_duck_pose]
 
     return Stest, Ptest
+
+
+def random_generator():
+    # generate random index for fine and real data
+    random_dataclass = random.sample([0,1],1)
+    # generate random index for object
+    random_objectclass = random.sample([0,1,2,3,4],1)
+    # generate random index for image
+    if random_dataclass == 0: # fine data
+        random_index = random.sample(range(0,1011),1)
+    else: # real data
+        random_index = random.sample(range(0,471),1)
+
+    return random_dataclass,random_objectclass,random_index
+
+
+def find_anchor(Ptrain):
+    random_data, random_obj, random_index = random_generator()
+    rd = random_data[0]
+    ro = random_obj[0]
+    ri = random_index[0]
+    anchor = Ptrain[rd][ro][ri]
+
+    return anchor,ro
+
+
+def find_puller(anchor,ro,Pdb):
+    puller_bank = []
+    for i in range(0, len(Pdb[ro])):
+        quat = Pdb[ro][i]
+        qmulti = np.abs(np.inner(anchor, quat))
+        theta = 2 * np.arccos(qmulti)
+        puller_bank.append(theta)
+
+    min_theta = np.min(puller_bank)
+    puller = Pdb[ro][puller_bank.index(min_theta)]
+
+    return puller
+
+
+def find_pusher(anchor,ro,Pdb):
+    pusher_bank = []
+    pusher_random_obj = random.sample(list(set(range(0,5)).difference(set([ro]))),1)[0]
+    for i in range(0, len(Pdb[pusher_random_obj])):
+        quat = Pdb[pusher_random_obj][i]
+        qmulti = np.abs(np.inner(anchor, quat))
+        theta = 2 * np.arccos(qmulti)
+        pusher_bank.append(theta)
+
+    max_theta = np.max(pusher_bank)
+    pusher = Pdb[pusher_random_obj][pusher_bank.index(max_theta)]
+
+    return pusher
+
+
+def batch_generator(n):
+    if n % 3 != 0:
+        
+
+
+
+
+
 
 
 
