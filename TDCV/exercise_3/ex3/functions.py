@@ -1,12 +1,8 @@
 # -*- coding: UTF-8
 
 import numpy as np
-import tensorflow as tf
-import quaternion
 import cv2
-import glob
-import os
-
+import quaternion
 
 # read images from folder
 def read_images(path):
@@ -23,11 +19,13 @@ def read_poses(file):
     for line in open(file):
         if line.startswith("#"):
             continue
+        elif line.startswith("\n"):
+            break
         else:
             qsub = line.split()
-            for i in range(0,len(qsub)):
-                qsub[i]=float(qsub[i])
-            quat = np.quaternion(qsub[0],qsub[1],qsub[2],qsub[3])
+            for i in range(0, len(qsub)):
+                qsub[i] = float(qsub[i])
+            quat = np.quaternion(qsub[0], qsub[1], qsub[2], qsub[3])
             q.append(quat)
     return q
 
@@ -45,13 +43,14 @@ def read_indeces(file):
 def read_selected_images(index,path):
     image_list = []
     for i in index:
-        image = cv2.imread(path + "coarse" + str(i)+".png")
+        image = cv2.imread(path + "real" + str(i)+".png")
         image_list.append(image)
     return image_list
 
 
-def read_selected_poses(index,pose):
+def read_selected_poses(index,path):
     selected_pose = []
+    pose = read_poses(path)
     for i in index:
         selected_pose.append(pose[i])
     return selected_pose
@@ -83,7 +82,6 @@ def generate_Sdb():
 
 
 def generate_Strain():
-    """
     # generate Strain set, use all fine data and selected real data from training_split.txt
     fine_path = "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/fine/"
 
@@ -105,30 +103,54 @@ def generate_Strain():
     real_path = "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/"
     real_index = read_indeces(real_path + "training_split.txt")
 
-    real_ape = read_selected_images(real_index, real_path + "/ape/")
-    real_benchvise = read_selected_images(real_index, real_path + "/benchvise/")
-    real_cam = read_selected_images(real_index, real_path + "/cam/")
-    real_cat = read_selected_images(real_index, real_path + "/cat/")
-    real_duck = read_selected_images(real_index, real_path + "/duck/")
-    """
+    real_ape = read_selected_images(real_index, real_path + "ape/")
+    real_benchvise = read_selected_images(real_index, real_path + "benchvise/")
+    real_cam = read_selected_images(real_index, real_path + "cam/")
+    real_cat = read_selected_images(real_index, real_path + "cat/")
+    real_duck = read_selected_images(real_index, real_path + "duck/")
 
-    real_path = "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/"
-    real_index = read_indeces(real_path + "training_split.txt")
-    real_ape_pose = read_poses(real_path + "/ape/poses.txt")
+    real_ape_pose = read_selected_poses(real_index,real_path + "ape/poses.txt")
+    real_benchvise_pose = read_selected_poses(real_index,real_path + "benchvise/poses.txt")
+    real_cam_pose = read_selected_poses(real_index,real_path + "cam/poses.txt")
+    real_cat_pose = read_selected_poses(real_index,real_path + "cat/poses.txt")
+    real_duck_pose = read_selected_poses(real_index,real_path + "duck/poses.txt")
 
-    final = read_selected_poses(real_index,real_ape_pose)
-    #real_benchvise_pose = read_poses(real_path + "/benchvise/poses.txt")
-    #real_cam_pose = read_poses(real_path + "/cam/poses.txt")
-    #real_cat_pose = read_poses(real_path + "/cat/poses.txt")
-    #real_duck_pose = read_poses(real_path + "/duck/poses.txt")
+    training_real = [real_ape,real_benchvise,real_cam,real_cat,real_duck]
+    training_real_pose = [real_ape_pose,real_benchvise_pose,real_cam_pose,real_cat_pose,real_duck_pose]
 
-    #training_real = [real_ape,real_benchvise,real_cam,real_cat,real_duck]
-    #training_real_pose = [real_ape_pose,real_benchvise_pose,real_cam_pose,real_cat_pose,real_duck_pose]
+    Strain = [training_fine, training_real]
+    Ptrain = [training_fine_pose, training_real_pose]
 
-    #Strain = [training_fine, training_real]
-    #Ptrain = [training_fine_pose, training_real_pose]
+    return Strain, Ptrain
 
-    return final
+
+def test_index():
+    index = range(1177)
+    train_index = read_indeces("/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/training_split.txt")
+    test_index = list(set(index).difference(set(train_index)))
+    return test_index
+
+
+def generate_Stest():
+    index = test_index()
+    test_ape = read_selected_images(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/ape/")
+    test_benchvise = read_selected_images(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/benchvise/")
+    test_cam = read_selected_images(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/cam/")
+    test_cat = read_selected_images(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/cat/")
+    test_duck = read_selected_images(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/duck/")
+
+    test_ape_pose= read_selected_poses(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/ape/poses.txt")
+    test_benchvise_pose = read_selected_poses(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/benchvise/poses.txt")
+    test_cam_pose = read_selected_poses(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/cam/poses.txt")
+    test_cat_pose = read_selected_poses(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/cat/poses.txt")
+    test_duck_pose = read_selected_poses(index,"/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/real/duck/poses.txt")
+
+    Stest = [test_ape,test_benchvise,test_cam,test_cat,test_duck]
+    Ptest = [test_ape_pose,test_benchvise_pose,test_cam_pose,test_cat_pose,test_duck_pose]
+
+    return Stest, Ptest
+
+
 
 
 
