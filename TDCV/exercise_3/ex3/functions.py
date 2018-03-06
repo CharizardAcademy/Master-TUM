@@ -7,13 +7,21 @@ import random
 
 
 # read images from folder
-def read_images(path):
+def read_images(path,datatype):
+    if datatype == "coarse":
+        length_index = 0
+    elif datatype == "fine":
+        length_index = 1
+    else:
+        length_index = 2
     image_list = []
-    for i in range(0,267):
-        image = cv2.imread(path + "coarse" + str(i)+".png")
+    image_length = [267,1011,1178]
+    for i in range(0,image_length[length_index]):
+        image = cv2.imread(path + datatype + str(i)+".png")
         #image = image - np.mean(image)
         #image = image/np.std(image,0,1)
         image_list.append(image)
+
     return image_list
 
 
@@ -31,6 +39,7 @@ def read_poses(file):
                 qsub[i] = float(qsub[i])
             q.append(qsub)
     #q = np.array(q)
+
     return q
 
 
@@ -41,6 +50,7 @@ def read_indeces(file):
             index = line.strip().split(",")
         for i in range(0,len(index)):
             index[i] = int(index[i])
+
     return index
 
 
@@ -51,6 +61,7 @@ def read_selected_images(index,path):
         #image = image - np.mean(image)
         #image = image / np.std(image, 0, 1)
         image_list.append(image)
+
     return image_list
 
 
@@ -59,6 +70,7 @@ def read_selected_poses(index,path):
     pose = read_poses(path)
     for i in index:
         selected_pose.append(pose[i])
+
     return selected_pose
 
 
@@ -66,11 +78,11 @@ def generate_Sdb():
     # generate Sdb set, use all coarse image
     coarse_path = "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/coarse/"
 
-    coarse_ape = read_images(coarse_path + "ape/")
-    coarse_benchvise = read_images(coarse_path + "benchvise/")
-    coarse_cam = read_images(coarse_path + "cam/")
-    coarse_cat = read_images(coarse_path + "cat/")
-    coarse_duck = read_images(coarse_path + "/duck")
+    coarse_ape = read_images(coarse_path + "ape/","coarse")
+    coarse_benchvise = read_images(coarse_path + "benchvise/","coarse")
+    coarse_cam = read_images(coarse_path + "cam/","coarse")
+    coarse_cat = read_images(coarse_path + "cat/","coarse")
+    coarse_duck = read_images(coarse_path + "duck/","coarse")
 
     coarse_ape_pose = read_poses(coarse_path + "ape/poses.txt")
     coarse_benchvise_pose = read_poses(coarse_path + "ape/poses.txt")
@@ -91,11 +103,11 @@ def generate_Strain():
     # generate Strain set, use all fine data and selected real data from training_split.txt
     fine_path = "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/dataset/fine/"
 
-    fine_ape = read_images(fine_path + "/ape")
-    fine_benchvise = read_images(fine_path + "/benchvise")
-    fine_cam = read_images(fine_path + "/cam")
-    fine_cat = read_images(fine_path + "/cat")
-    fine_duck = read_images(fine_path + "/duck")
+    fine_ape = read_images(fine_path + "/ape/","fine")
+    fine_benchvise = read_images(fine_path + "/benchvise/","fine")
+    fine_cam = read_images(fine_path + "/cam/","fine")
+    fine_cat = read_images(fine_path + "/cat/","fine")
+    fine_duck = read_images(fine_path + "/duck/","fine")
 
     fine_ape_pose = read_poses(fine_path + "/ape/poses.txt")
     fine_benchvise_pose = read_poses(fine_path + "/benchvise/poses.txt")
@@ -171,48 +183,64 @@ def random_generator():
     return random_dataclass,random_objectclass,random_index
 
 
-def find_anchor(Ptrain):
+def find_anchor(Ptrain,Strain):
     random_data, random_obj, random_index = random_generator()
     rd = random_data[0]
     ro = random_obj[0]
     ri = random_index[0]
-    anchor = Ptrain[rd][ro][ri]
+    anchor_pose = Ptrain[rd][ro][ri]
+    anchor_image = Strain[rd][ro][ri]
 
-    return anchor,ro
+    return anchor_pose,anchor_image,ro
 
 
-def find_puller(anchor,ro,Pdb):
+def find_puller(anchor_pose,ro,Pdb,Sdb):
     puller_bank = []
     for i in range(0, len(Pdb[ro])):
         quat = Pdb[ro][i]
-        qmulti = np.abs(np.inner(anchor, quat))
+        qmulti = np.abs(np.inner(anchor_pose, quat))
         theta = 2 * np.arccos(qmulti)
         puller_bank.append(theta)
 
     min_theta = np.min(puller_bank)
-    puller = Pdb[ro][puller_bank.index(min_theta)]
+    puller_pose = Pdb[ro][puller_bank.index(min_theta)]
+    puller_image = Sdb[ro][puller_bank.index(min_theta)]
 
-    return puller
+    return puller_pose,puller_image
 
-
-def find_pusher(anchor,ro,Pdb):
+# the pusher is defined as combination of both assumptions
+def find_pusher(anchor_pose,ro,Pdb,Sdb):
     pusher_bank = []
+    # randomly pick another object different to anchor image
     pusher_random_obj = random.sample(list(set(range(0,5)).difference(set([ro]))),1)[0]
     for i in range(0, len(Pdb[pusher_random_obj])):
         quat = Pdb[pusher_random_obj][i]
-        qmulti = np.abs(np.inner(anchor, quat))
+        qmulti = np.abs(np.inner(anchor_pose, quat))
         theta = 2 * np.arccos(qmulti)
         pusher_bank.append(theta)
 
     max_theta = np.max(pusher_bank)
-    pusher = Pdb[pusher_random_obj][pusher_bank.index(max_theta)]
+    pusher_pose = Pdb[pusher_random_obj][pusher_bank.index(max_theta)]
+    pusher_image = Sdb[pusher_random_obj][pusher_bank.index(max_theta)]
 
-    return pusher
+    return pusher_pose,pusher_image
 
 
-def batch_generator(n):
-    if n % 3 != 0:
-        
+def batch_generator(n,Ptrain,Pdb,Strain,Sdb):
+    batch = []
+    for i in range(0,n):
+        anchor_pose,anchor_image,ro = find_anchor(Ptrain,Strain)
+        _,puller_image = find_puller(anchor_pose,ro,Pdb,Sdb)
+        _,pusher_image = find_pusher(anchor_pose,ro,Pdb,Sdb)
+        batch.append([anchor_image,puller_image,pusher_image])
+
+    return batch
+
+
+
+
+
+
 
 
 

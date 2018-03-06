@@ -15,10 +15,12 @@ Strain, Ptrain = generate_Strain()
 # generate testing set Stest
 Stest,Ptest = generate_Stest()
 
-# randomly pick an anchor from Strain
-anchor,ro = find_anchor(Ptrain)
-puller = find_puller(anchor,ro,Pdb)
-pusher = find_pusher(anchor,ro,Pdb)
+batch = batch_generator(3,Ptrain,Pdb,Strain,Sdb)
+cv2.imshow("img",batch[0][0])
+cv2.imshow("img2",batch[0][1])
+cv2.imshow("img3",batch[0][2])
+cv2.waitKey(0)
+
 
 
 
