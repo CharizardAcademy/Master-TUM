@@ -2,7 +2,6 @@
 
 import numpy as np
 import cv2
-import quaternion
 import random
 
 
@@ -210,18 +209,29 @@ def find_puller(anchor_pose,ro,Pdb,Sdb):
 
 # the pusher is defined as combination of both assumptions
 def find_pusher(anchor_pose,ro,Pdb,Sdb):
+    # a pusher comes either from same object with different pose or from the different object
     pusher_bank = []
-    # randomly pick another object different to anchor image
+
+    # pusher comes from different objects
     pusher_random_obj = random.sample(list(set(range(0,5)).difference(set([ro]))),1)[0]
-    for i in range(0, len(Pdb[pusher_random_obj])):
-        quat = Pdb[pusher_random_obj][i]
+    random_pick = random.sample(range(0,len(Pdb[pusher_random_obj])),1)[0]
+    pusher_dif_obj_pose = Pdb[pusher_random_obj][random_pick]
+    pusher_dif_obj_image = Sdb[pusher_random_obj][random_pick]
+
+    for i in range(0,len(Pdb[ro])):
+        quat = Pdb[ro][i]
         qmulti = np.abs(np.inner(anchor_pose, quat))
         theta = 2 * np.arccos(qmulti)
         pusher_bank.append(theta)
 
     max_theta = np.max(pusher_bank)
-    pusher_pose = Pdb[pusher_random_obj][pusher_bank.index(max_theta)]
-    pusher_image = Sdb[pusher_random_obj][pusher_bank.index(max_theta)]
+
+    pusher__same_obj_pose = Pdb[ro][pusher_bank.index(max_theta)]
+    pusher_same_obj_image = Sdb[ro][pusher_bank.index(max_theta)]
+
+    pusher_picker = random.sample([0,1],1)[0]
+    pusher_image = [pusher_same_obj_image,pusher_dif_obj_image][pusher_picker]
+    pusher_pose = [pusher__same_obj_pose,pusher_dif_obj_pose][pusher_picker]
 
     return pusher_pose,pusher_image
 
