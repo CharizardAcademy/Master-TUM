@@ -18,8 +18,8 @@ def read_images(path,datatype):
     image_length = [267,1011,1178]
     for i in range(0,image_length[length_index]):
         image = cv2.imread(path + datatype + str(i)+".png")
-        #image = image - np.mean(image)
-        #image = image/np.std(image,0,1)
+        image = image - np.average(image)
+        image = image/np.std(image)
         image_list.append(image)
 
     return image_list
