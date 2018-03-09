@@ -3,9 +3,10 @@
 import numpy as np
 import cv2
 import random
+import math
 
 
-# read images from folder
+# read images from folder,clip the image to 63*63 in order to fit the requirements of CNN
 def read_images(path,datatype):
     if datatype == "coarse":
         length_index = 0
@@ -17,6 +18,7 @@ def read_images(path,datatype):
     image_length = [267,1011,1178]
     for i in range(0,image_length[length_index]):
         image = cv2.imread(path + datatype + str(i)+".png")
+        image = image[:63, :63]
         image = image - np.average(image)
         image = image/np.std(image)
         image_list.append(image)
@@ -37,7 +39,6 @@ def read_poses(file):
             for i in range(0, len(qsub)):
                 qsub[i] = float(qsub[i])
             q.append(qsub)
-    #q = np.array(q)
 
     return q
 
@@ -57,8 +58,9 @@ def read_selected_images(index,path):
     image_list = []
     for i in index:
         image = cv2.imread(path + "real" + str(i)+".png")
-        #image = image - np.mean(image)
-        #image = image / np.std(image, 0, 1)
+        image = image[:-1, :-1]
+        image = image - np.average(image)
+        image = image / np.std(image)
         image_list.append(image)
 
     return image_list
@@ -198,8 +200,14 @@ def find_puller(anchor_pose,ro,Pdb,Sdb):
     for i in range(0, len(Pdb[ro])):
         quat = Pdb[ro][i]
         qmulti = np.abs(np.inner(anchor_pose, quat))
+        if qmulti>1:
+            qmulti = 1
         theta = 2 * np.arccos(qmulti)
-        puller_bank.append(theta)
+        if math.isnan(theta):
+            theta = 400
+            puller_bank.append(theta)
+        else:
+            puller_bank.append(theta)
 
     min_theta = np.min(puller_bank)
     puller_pose = Pdb[ro][puller_bank.index(min_theta)]
@@ -221,8 +229,14 @@ def find_pusher(anchor_pose,ro,Pdb,Sdb):
     for i in range(0,len(Pdb[ro])):
         quat = Pdb[ro][i]
         qmulti = np.abs(np.inner(anchor_pose, quat))
+        if qmulti>1:
+            qmulti = 1
         theta = 2 * np.arccos(qmulti)
-        pusher_bank.append(theta)
+        if math.isnan(theta):
+            theta = -1
+            pusher_bank.append(theta)
+        else:
+            pusher_bank.append(theta)
 
     max_theta = np.max(pusher_bank)
 
@@ -235,16 +249,20 @@ def find_pusher(anchor_pose,ro,Pdb,Sdb):
 
     return pusher_pose,pusher_image
 
-
+# batch要不要弄成一个大矩阵的形式
 def batch_generator(n,Ptrain,Pdb,Strain,Sdb):
     batch = []
     for i in range(0,n):
         anchor_pose,anchor_image,ro = find_anchor(Ptrain,Strain)
         _,puller_image = find_puller(anchor_pose,ro,Pdb,Sdb)
         _,pusher_image = find_pusher(anchor_pose,ro,Pdb,Sdb)
-        batch.append([anchor_image,puller_image,pusher_image])
+        batch.append(anchor_image)
+        batch.append(puller_image)
+        batch.append(pusher_image)
 
-    return batch
+
+    batch_array = np.stack(batch)
+    return batch_array
 
 
 
