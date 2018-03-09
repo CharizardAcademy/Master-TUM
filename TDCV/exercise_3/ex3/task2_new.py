@@ -116,22 +116,27 @@ saver = tf.train.Saver()
 with tf.Session() as sess:
     sess.run(tf.initialize_all_variables())
     loss_bank = []
-
-    # 跑2000个step
-    for i in range(2000):
-        data = batch  # 把数据传进来
-        _, myloss = sess.run([optimizer, loss], feed_dict={x:data})
-        loss_bank.append(myloss)
-        print("The loss at step", i, "is", myloss)
+    # 跑100个epoch
+    for j in range(100):
+        print("Batch generating...")
+        batch = batch_generator(100, Ptrain, Pdb, Strain, Sdb)
+        print("Batch generating done.")
+        # 每个batch跑200个step
+        for i in range(200):
+            data = batch  # 把数据传进来
+            _, myloss = sess.run([optimizer, loss], feed_dict={x: data})
+            loss_bank.append(myloss)
+            print("The loss at epoch", j, "step", i, "is", myloss)
 
     print("Traning done.")
+
     saver.save(sess, "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/ex3")
 
-
-
+"""
 # plot the loss curve for training
 plt.plot(loss_bank)
 plt.show()
+"""
 
 
 

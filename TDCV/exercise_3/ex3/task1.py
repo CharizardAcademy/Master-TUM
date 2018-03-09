@@ -15,7 +15,7 @@ Strain, Ptrain = generate_Strain()
 # generate testing set Stest
 Stest,Ptest = generate_Stest()
 
-batch = batch_generator(60,Ptrain,Pdb,Strain,Sdb)
+#batch = batch_generator(60,Ptrain,Pdb,Strain,Sdb)
 
 """
 cv2.imshow("img",batch[0])
