@@ -250,7 +250,7 @@ def find_pusher(anchor_pose,ro,Pdb,Sdb):
     return pusher_pose,pusher_image
 
 
-# batch要不要弄成一个大矩阵的形式
+
 def batch_generator(n,Ptrain,Pdb,Strain,Sdb):
     batch = []
     for i in range(0,n):
