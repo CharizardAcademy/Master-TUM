@@ -80,16 +80,16 @@ def bins_assignment(angle_list):
     bin180 = 0
 
     for angle in angle_list:
-        if angle <= 10:
+        if angle <= 10.0:
             bin10 = bin10 + 1
             bin20 = bin20 + 1
             bin40 = bin40 + 1
             bin180 = bin180 + 1
-        elif angle > 10 & angle <= 20:
+        elif angle > 10.0 and angle <= 20.0:
             bin20 = bin20 + 1
             bin40 = bin40 + 1
             bin180 = bin180 + 1
-        elif angle > 20 & angle <= 40:
+        elif angle > 20.0 and angle <= 40.0:
             bin40 = bin40 + 1
             bin180 = bin180 + 1
         else:
@@ -139,12 +139,8 @@ with tf.name_scope("w_fc1"):
     w_fc1 = weight_init([12 * 12 * 7, 256])
 with tf.name_scope("b_fc1"):
     b_fc1 = bias_init([256])
-
-h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
-
-# add dropout layer,失活概率0.6
-with tf.name_scope("h_fc1_drop"):
-    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob=0.6)
+with tf.name_scope("h_fc1"):
+    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
 
 # FC Layer 2,16个神经元
 with tf.name_scope("w_fc2"):
@@ -152,8 +148,7 @@ with tf.name_scope("w_fc2"):
 with tf.name_scope("b_fc2"):
     b_fc2 = bias_init([16])
 with tf.name_scope("h_fc2"):
-    h_fc2 = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
-# print(h_fc2)
+    h_fc2 = tf.matmul(h_fc1, w_fc2) + b_fc2
 
 with tf.name_scope("loss"):
     loss = compute_loss(h_fc2, margin)
@@ -173,13 +168,13 @@ with tf.Session(config=config) as sess:
 
     sess.run(tf.initialize_all_variables())
     loss_bank = []
-    # 跑100个epoch
+    # 跑10个epoch，一个epoch是所有训练数据全用一次
     Sdb, Pdb = generate_Sdb()
     Stest, Ptest = generate_Stest()
 
     for i in range(10000):
         # print("Batch generating...")
-        batch = batch_generator(10, Ptrain, Pdb, Strain, Sdb)
+        batch = batch_generator(32, Ptrain, Pdb, Strain, Sdb)
         # print("Batch generating done.")
         data = batch  # 把数据传进来
         _, myloss, mrg = sess.run([optimizer, loss, merged], feed_dict={x: data})
