@@ -45,7 +45,7 @@ with tf.Session() as sess:
     data_test = Stest
     loss_bank = []
     new_saver = tf.train.import_meta_graph(
-        "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/model/9.0.meta")
+        "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/model/8.0.meta")
     new_saver.restore(sess, tf.train.latest_checkpoint(
         "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/model"))
 
@@ -95,7 +95,7 @@ with tf.Session() as sess:
 
     #print(angular_diff)
     bin10, bin20, bin40, bin180 = bins_assignment(angular_diff)
-    print(bin10, bin20, bin40, bin180)
+    #print(bin10, bin20, bin40, bin180)
 
     bins_label = [10,20,40,180]
     bins = [bin10, bin20, bin40, bin180]
@@ -103,7 +103,7 @@ with tf.Session() as sess:
     num_bins = 4
     index = np.arange(num_bins)
     plt.bar(index, bins,alpha=0.9, width=0.35, facecolor='lightskyblue', edgecolor='white', lw=1)
-    plt.xticks(index + 0.35, ('<10', '<20', '<40', '<180'))
+    plt.xticks(index, ('<10', '<20', '<40', '<180'))
     plt.tight_layout()
     plt.show()
 
