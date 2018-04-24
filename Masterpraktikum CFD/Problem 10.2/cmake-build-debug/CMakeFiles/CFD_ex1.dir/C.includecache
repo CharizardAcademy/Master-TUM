@@ -6,6 +6,16 @@
 
 #IncludeRegexTransform: 
 
+/Users/gaoyingqiang/CLionProjects/CFD_ex1/boundary_val.c
+stdio.h
+-
+helper.h
+/Users/gaoyingqiang/CLionProjects/CFD_ex1/helper.h
+init.h
+/Users/gaoyingqiang/CLionProjects/CFD_ex1/init.h
+math.h
+/Users/gaoyingqiang/CLionProjects/CFD_ex1/math.h
+
 /Users/gaoyingqiang/CLionProjects/CFD_ex1/helper.c
 ctype.h
 -
