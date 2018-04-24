@@ -1,0 +1,4 @@
+embeddings {
+  tensor_name: "Stest_des:0"
+  metadata_path: "/Users/gaoyingqiang/Documents/GitHub/Master-TUM/TDCV/exercise_3/ex3/embedding-logs/metadata_obj.tsv"
+}
