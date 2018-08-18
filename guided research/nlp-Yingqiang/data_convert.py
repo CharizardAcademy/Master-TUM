@@ -49,8 +49,10 @@ def xml2json_category(jsonname, filepath, flag_train_or_test):
 
     # for test data, if term exists, then use term as apect, otherwise use category as aspect
     if(flag_train_or_test == 'test'):
+
         tree = ET.parse(filepath)
         root = tree.getroot()
+
         data = []
         data_sentence = []
         data_polarity = []
@@ -66,22 +68,13 @@ def xml2json_category(jsonname, filepath, flag_train_or_test):
                     data_polarity.append(polarity)
                     for text in sentence.findall('text'):
                         data_sentence.append(text.text.strip())
-            elif(sentence.find('aspectTerms') == None):   
-                for aspect_category in sentence.findall('aspectCategories/aspectCategory'):
-                    if('/' in aspect_category.attrib['category']):
-                        category = aspect_category.attrib['category'].split('/')
-                        data_target.append(category[0].lower())   
-                        polarity = aspect_category.attrib['polarity']
-                        data_polarity.append(polarity)
-                        for text in sentence.findall('text'):
-                            data_sentence.append(text.text.strip())
-                    else:
-                        category = aspect_category.attrib['category']
-                        data_target.append(category.lower())
-                        polarity = aspect_term.attrib['polarity']
-                        data_polarity.append(polarity)
-                        for text in sentence.findall('text'):
-                            data_sentence.append(text.text.strip())
+            elif(sentence.find('aspectTerms') == None): 
+                for aspect_term in sentence.findall('aspectTerms/aspectTerm'): 
+                    data_target.append('None')
+                    polarity = aspect_term.attrib['polarity']
+                    data_polarity.append(polarity)
+                    for text in sentence.findall('text'):
+                        data_sentence.append(text.text.strip())
 
         for i in range(0,len(data_sentence)):
             data_dic = {}
@@ -90,7 +83,45 @@ def xml2json_category(jsonname, filepath, flag_train_or_test):
             data_dic["polarity"] = data_polarity[i]
             data.append(data_dic)
 
-        with open(jsonname+'.json', 'w') as outfile:
+        with open(jsonname+'_term.json', 'w') as outfile:
+            json.dump(data, outfile)
+
+        data = []
+        data_sentence = []
+        data_polarity = []
+        data_target = []
+        data_category = []
+
+        for sentence in root.findall('sentence'):
+            for aspect_category in sentence.findall('aspectCategories/aspectCategory'):
+                if('/' in aspect_category.attrib['category']):
+                    category = aspect_category.attrib['category'].split('/')
+                    data_category.append(category[0].lower())   
+                    polarity = aspect_category.attrib['polarity']
+                    data_polarity.append(polarity)
+                    for text in sentence.findall('text'):
+                        data_sentence.append(text.text.strip())
+                    data_category.append(category[1].lower())   
+                    polarity = aspect_category.attrib['polarity']
+                    data_polarity.append(polarity)
+                    for text in sentence.findall('text'):
+                        data_sentence.append(text.text.strip())
+                else:
+                    category = aspect_category.attrib['category']
+                    data_category.append(category.lower())
+                    polarity = aspect_term.attrib['polarity']
+                    data_polarity.append(polarity)
+                    for text in sentence.findall('text'):
+                        data_sentence.append(text.text.strip())
+
+        for i in range(0,len(data_sentence)):
+            data_dic = {}
+            data_dic["sentence"] = data_sentence[i]
+            data_dic["category"] = data_category[i]
+            data_dic["polarity"] = data_polarity[i]
+            data.append(data_dic)
+
+        with open(jsonname+'_category.json', 'w') as outfile:
             json.dump(data, outfile)
 
 
@@ -140,8 +171,8 @@ def excel2json_category(jsonname, filepath):
     
 
 if __name__ == '__main__':
-   #xml2json_category('SemEval16_Restaurant_Test','/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/data/Test/Restaurants_Test.xml',flag_train_or_test='test')
-   excel2json_category("Organic_Train","/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/data/aspect-labeled-comments2_JB.xlsx")
+   xml2json_category('SemEval16_Restaurant_Test','/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/data/Test/Restaurants_Test.xml',flag_train_or_test='test')
+   #excel2json_category("Organic_Train","/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/data/aspect-labeled-comments2_JB.xlsx")
 
 
     
