@@ -304,7 +304,7 @@ def load_data(filepath, flag_train_or_test):
         data_polarity = []
         for i in range(0,len(data)):
             data_sentence.append(data[i]['sentence'])
-            data_target.append(data[i]['target'])
+            data_target.append(data[i]['category'])
             data_polarity.append(data[i]['polarity']) 
     
         return data_sentence, data_target, data_polarity
@@ -401,12 +401,41 @@ def compute_max_sent_length(filepath,flag_train_or_test):
     longest_sentence_len = max([len(data_tokenized[i]['sentence']) for i in range(0, len(data_tokenized))])
     return longest_sentence_len
 
+# convert this to one_hot: tf.one_hot(label, 3, on_value=1.0, off_value=0.0)
+# negatvie - 0 neutral - 1 positive - 2
+def polarity_label_generator(data_polarity):
+    label = []
+    for i in range(0, len(data_polarity)):
+        if(data_polarity[i]=='negative'):
+            label.append(0)
+        elif(data_polarity[i]=='neutral'):
+            label.append(1)
+        else:
+            label.append(2)
+            
+    return label
+
+# convert this to one_hot: tf.one_hot(label, len(label_ref), on_value=1.0, off_value=0.0, axis=-1)
+def category_label_generator(data_category):
+    label_ref = []
+    label = []
+    for i in range(0, len(data_category)):
+        if(data_category[i] not in label_ref):
+            label_ref.append(data_category[i])
+
+    for i in range(0,len(data_category)):
+        label.append(label_ref.index(data_category[i]))
+
+    return label
+
+
 if __name__ == '__main__':
-    data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert'
-    embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/glove.6B/glove.6B.50d.txt'
+    data_dir = '/Users/gaoyingqiang/Desktop/大学/Master/Guided-Research/nlp-Yingqiang/convert'
+    #embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/glove.6B/glove.6B.50d.txt'
    
-    train_data_sentence, train_data_target, train_data_polarity  = load_data(data_dir + "/Organic_Train.json",flag_train_or_test='test')
-
-    word_dict, word_embedding = load_embedding(embedding_dir)
-
-    x_train = sent_represent_generator(train_data_sentence, word_embedding, word_dict)
+    train_data_sentence, train_data_target, train_data_category, train_data_polarity  = load_data(data_dir + "/SemEval16_Restaurant_Train.json",flag_train_or_test='train')
+    #label = polarity_label_generator(train_data_polarity)
+    #print(label[0:10])
+    label = category_label_generator(train_data_category)
+    print(label)
+    #x_train = sent_represent_generator(train_data_sentence, word_embedding, word_dict)
