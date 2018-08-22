@@ -50,12 +50,20 @@ def sentence_tokenizer(filepath, flag_train_or_test):
                         data[i]["sentence"] = data[i]["sentence"].replace(token, ' ')
                 data_dic["sentence"] = word_tokenize(data[i]["sentence"])
                 # remove punctuations in the target
-                for token in data[i]["target"]:
-                    if token in all_punctuation:
-                        data[i]["target"] = data[i]["target"].replace(token, ' ')
-                data_dic["target"] = word_tokenize(data[i]["target"]) 
+                try:
+                    for token in data[i]["target"]:
+                        if token in all_punctuation:
+                            data[i]["target"] = data[i]["target"].replace(token, ' ')
+                    data_dic["target"] = word_tokenize(data[i]["target"]) 
+                except KeyError:
+                    for token in data[i]["category"]:
+                        if token in all_punctuation:
+                            data[i]["category"] = data[i]["category"].replace(token, ' ')
+                    data_dic["category"] = word_tokenize(data[i]["category"])
+
                 data_dic["polarity"] = data[i]["polarity"]
                 data_tokenized.append(data_dic)
+
             except TypeError:
                 continue
                 
@@ -429,7 +437,7 @@ def category_label_generator(data_category):
             label_ref.append(data_category[i])
 
     for i in range(0,len(data_category)):
-        label.append(label_ref.index(data_category[i]))
+        label.append([label_ref.index(data_category[i])])
 
     return label, len(label_ref)
 
@@ -439,8 +447,8 @@ if __name__ == '__main__':
     #embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/glove.6B/glove.6B.50d.txt'
    
     train_data_sentence, train_data_target, train_data_category, train_data_polarity  = load_data(data_dir + "/SemEval16_Restaurant_Train.json",flag_train_or_test='train', flag_aspect='train')
-    label = polarity_label_generator(train_data_polarity)
+    #label = polarity_label_generator(train_data_polarity)
     
-    #label = category_label_generator(train_data_category)
-    print(type(label[0][0]))
+    label,_ = category_label_generator(train_data_category)
+    print(label)
     #x_train = sent_represent_generator(train_data_sentence, word_embedding, word_dict)

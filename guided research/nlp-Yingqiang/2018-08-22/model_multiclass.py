@@ -11,7 +11,7 @@ import utils
 import tensorflow as tf 
 import os 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
+import matplotlib.pyplot as plt
 # this model focus on aspect- based sentiment analysis. For aspect term (i.e. the attributes of entities show up in sentence) sentiment analysis, predict the position and the polarity of aspect term. For aspect category (i.e. the classification of aspect attributes, which may not show up in sentence) sentiment analysis , predict the category and polarity.
 
 # input (feature engineering): GloVe embeddings, universal sentence embeddings, binary mask
@@ -61,7 +61,7 @@ def set_flag():
     flag_train = True
     flag_test = False
     flag_uni_sent_embedding = False
-    flag_aspect = 'term'# term or category
+    flag_aspect = 'category'# term or category
     return flag_domain, flag_train, flag_test, flag_uni_sent_embedding, flag_aspect
 
 def fcin_weight_init():
@@ -119,7 +119,7 @@ if(flag_domain=='Restaurant'):
     train_target_label = utils.label_generator(train_data_sentence, train_data_target)
     # process training polarity label
     train_polarity_label = utils.polarity_label_generator(train_data_polarity)
-    train_category_label = utils.category_label_generator(train_data_category)
+    train_category_label,num_category = utils.category_label_generator(train_data_category)
 
     # compute mask for training data
     train_binary_mask = utils.binary_mask_generator(data_dir + '/SemEval16_Restaurant_Train.json',flag_train_or_test='train')
@@ -143,7 +143,7 @@ if(flag_domain=='Restaurant'):
         # compute maximal sentence length
         test_max_sent_len = utils.compute_max_sent_length(data_dir + '/SemEval16_Restaurant_Test_category.json', flag_train_or_test='test')
         # process test category label
-        test_category_label, num_category = utils.category_label_generator(test_data_category)
+        test_category_label, _ = utils.category_label_generator(test_data_category)
         # category classification don't use binary mask
         test_mask = utils.mask_generator(data_dir, flag_domain='Restaurant',flag_train_or_test='test')
     
@@ -164,11 +164,11 @@ with tf.device('/device:GPU:0'):
             tf_X = tf.placeholder(tf.float32, shape=[None, train_max_sent_len, embedding_size],name='tf_X')
             tf_X_mask = tf.placeholder(tf.float32, shape=[None, train_max_sent_len],name='tf_X_mask')
             tf_X_binary_mask = tf.placeholder(tf.float32, shape=[None, train_max_sent_len],name='tf_X_binary_mask')
-            tf_y_target = tf.placeholder(tf.int64, shape=[None, train_max_sent_len], name='tf_y_target')
-            tf_y_polarity = tf.placeholder(tf.int64, shape=[None, 1],name='tf_y_polarity')
+            if(flag_aspect=='term'):
+                tf_y_target = tf.placeholder(tf.int64, shape=[None, train_max_sent_len], name='tf_y_target')
             if(flag_aspect=='category'):
-                tf_y_category = tf.placeholder(tf.int64, shape=[None, num_category],name='tf_y_category')
-    
+                tf_y_category = tf.placeholder(tf.int64, shape=[None, 1],name='tf_y_category')
+            tf_y_polarity = tf.placeholder(tf.int64, shape=[None, 1],name='tf_y_polarity')
             keep_prob = tf.placeholder(tf.float32)
         if(flag_test):
             tf_X = tf.placeholder(tf.float32, shape=[None, test_max_sent_len, embedding_size])
@@ -192,13 +192,14 @@ with tf.device('/device:GPU:0'):
 
 
     # get labels
-    y_target_labels = tf.one_hot(tf_y_target, num_sentiment_label, on_value=1.0, off_value=0.0, axis=-1)
+    if(flag_aspect=='term'):
+        y_target_labels = tf.one_hot(tf_y_target, num_sentiment_label, on_value=1.0, off_value=0.0, axis=-1)
     if(flag_aspect=='category'):
         y_category_labels = tf.one_hot(tf_y_category, num_category, on_value=1.0, off_value=0.0, axis=-1)
+
     y_polarity_labels = tf.one_hot(tf_y_polarity, num_sentiment_label, on_value=1.0, off_value=0.0,axis=-1)
     
     
-
     # process input 
     X = tf.transpose(tf_X, [1, 0, 2])
     # reshaping to [batch_size*sentence_length, embedding_size]
@@ -248,13 +249,26 @@ with tf.device('/device:GPU:0'):
     
     # category classification
     if(flag_aspect=='category'):
-        category_w1, category_w2, category_b1, category_b2 = softmax_classifier_init(output_feature, num_category)
-        category_hidden_out = tf.nn.relu(tf.matmul(output_feature, category_w1) + category_b1)
+        output_dim = output_feature.get_shape().as_list()[1]
+        category_w1, category_w2, category_b1, category_b2 = softmax_classifier_init(output_dim, num_category)
+        feature = tf.reduce_mean(output_feature, 2)
+
+        category_hidden_out = tf.nn.relu(tf.matmul(feature, category_w1) + category_b1)
         category_feature = tf.matmul(category_hidden_out, category_w2) + category_b2
-        category_prediction = tf.nn.softmax(category_feature)
-        cross_entropy_category = -tf.reduce_sum(y_category_labels*tf.log(category_prediction))
-        category_correct_prediction = tf.equal(tf.argmax(tf_y_category, 1), tf.argmax(category_prediction, 1))
-        category_accuracy = tf.reduce_mean(tf.cast(category_correct_prediction, 'float'))
+
+        cross_entropy_category = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=category_feature, labels=y_category_labels))
+        category_prediction = tf.argmax(tf.nn.softmax(category_feature), 1)
+        category_prediction = tf.one_hot(category_prediction, num_category, on_value=1.0, off_value=0.0, axis=-1)
+        category_prediction = tf.cast(category_prediction, tf.float32)
+        y_category_labels = tf.cast(y_category_labels, tf.float32)
+        
+        TP_c = tf.count_nonzero(category_prediction*y_category_labels)
+        TN_c = tf.count_nonzero((category_prediction - 1)*(y_category_labels - 1))
+        FP_c = tf.count_nonzero(category_prediction*(y_category_labels - 1))
+        FN_c = tf.count_nonzero((category_prediction - 1)*y_category_labels)
+
+        category_accuracy = (TP_c+TN_c)/(TP_c+FN_c+TN_c+FP_c)
+        
     
     
     # polarity classification
@@ -265,34 +279,25 @@ with tf.device('/device:GPU:0'):
     polarity_hidden_out = tf.nn.relu(tf.matmul(feature, polarity_w1) + polarity_b1)
     polarity_feature = tf.matmul(polarity_hidden_out, polarity_w2) + polarity_b2
     
-
-
     cross_entropy_polarity = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=polarity_feature, labels=y_polarity_labels))
     polarity_prediction = tf.argmax(tf.nn.softmax(polarity_feature), 1)
     polarity_prediction = tf.one_hot(polarity_prediction, 3, on_value=1.0, off_value=0.0, axis=-1)
     polarity_prediction = tf.cast(polarity_prediction, tf.float32)
     y_polarity_labels = tf.cast(y_polarity_labels, tf.float32)
     
-    TP = tf.count_nonzero(polarity_prediction*y_polarity_labels)
-    TN = tf.count_nonzero((polarity_prediction - 1)*(y_polarity_labels - 1))
-    FP = tf.count_nonzero(polarity_prediction*(y_polarity_labels - 1))
-    FN = tf.count_nonzero((polarity_prediction - 1)*y_polarity_labels)
+    TP_p = tf.count_nonzero(polarity_prediction*y_polarity_labels)
+    TN_p = tf.count_nonzero((polarity_prediction - 1)*(y_polarity_labels - 1))
+    FP_p = tf.count_nonzero(polarity_prediction*(y_polarity_labels - 1))
+    FN_p = tf.count_nonzero((polarity_prediction - 1)*y_polarity_labels)
 
-    polarity_accuracy = (TP+TN)/(TP+FN+TN+FP)
+    polarity_accuracy = (TP_p+TN_p)/(TP_p+FN_p+TN_p+FP_p)
     
-    '''
-    polarity_prediction = tf.nn.softmax(polarity_feature)
-    cross_entropy_polarity = -tf.reduce_sum(y_polarity_labels*tf.log(polarity_prediction))
-    polarity_correct_prediction = tf.equal(tf.argmax(y_polarity_labels), tf.argmax(polarity_prediction))
-    polarity_accuracy = tf.reduce_mean(tf.cast(polarity_correct_prediction, 'float'))
-    '''
 
     if(flag_aspect=='term'):
         final_loss = cross_entropy_target + cross_entropy_polarity
-        #final_loss = cross_entropy_polarity
     elif(flag_aspect=='category'):
         final_loss = cross_entropy_category + cross_entropy_polarity
-    
+        
     global_step = tf.Variable(0, trainable=False)
     learning_rate = tf.train.exponential_decay(LEARNING_RATE, global_step, 1000, 0.65, staircase=True)
     optimizer = tf.train.AdamOptimizer(learning_rate).minimize(final_loss, global_step=global_step)
@@ -324,7 +329,8 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
     
     if(flag_train):
         loss_list = []
-        accuracy_list = []
+        polarity_accuracy_list = []
+        category_accuracy_list = []
 
         for it in range(TRAINING_ITERATIONS):
             if(it * batch_size % num_sample_train + batch_size < num_sample_train):
@@ -332,29 +338,52 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
             else:
                 index = num_sample_train - batch_size
             
+            if(flag_aspect=='term'):
+                _, correct_prediction_target, accuracy_polarity,cost_train, polarity_labels = sess.run([optimizer, target_correct_prediction, polarity_accuracy,final_loss, y_polarity_labels], feed_dict={tf_X: np.asarray(x_train[index:index+batch_size]), tf_X_mask: np.asarray(train_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(train_binary_mask[index:index+batch_size]),
+                tf_y_target:np.asarray(train_target_label[index:index+batch_size]),
+                tf_y_polarity:np.asarray(train_polarity_label[index:index+batch_size]), 
+                keep_prob: 1.0 })
             
-            _, correct_prediction_target, accuracy_polarity,cost_train, polarity_labels = sess.run([optimizer, target_correct_prediction, polarity_accuracy,final_loss, y_polarity_labels], feed_dict={tf_X: np.asarray(x_train[index:index+batch_size]), tf_X_mask: np.asarray(train_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(train_binary_mask[index:index+batch_size]),
-            tf_y_target:np.asarray(train_target_label[index:index+batch_size]),
-            tf_y_polarity:np.asarray(train_polarity_label[index:index+batch_size]), 
-            keep_prob: 1.0 })
             
-            '''
-            output_check = sess.run([output_feature_check], feed_dict={tf_X: np.asarray(x_train[index:index+batch_size]), tf_X_mask: np.asarray(train_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(train_binary_mask[index:index+batch_size]),
-            tf_y_target:np.asarray(train_target_label[index:index+batch_size]),
-            tf_y_polarity:np.asarray(train_polarity_label[index:index+batch_size]), 
-            keep_prob: 1.0 })
-            
+                print('target accuracy => %.3f, polarity_accuracy => %.3f, cost value => %.5f for step %d, learning_rate => %.5f' % (correct_prediction_target/np.sum(np.asarray(train_binary_mask[index:index+batch_size])), accuracy_polarity ,cost_train, it, learning_rate.eval()))
 
-            if(it==0):
-                print(output_check[0])
-            '''
-            print('target accuracy => %.3f, polarity_accuracy => %.3f, cost value => %.5f for step %d, learning_rate => %.5f' % (correct_prediction_target/np.sum(np.asarray(train_binary_mask[index:index+batch_size])), accuracy_polarity ,cost_train, it, learning_rate.eval()))
+            if(flag_aspect=='category'):
+                _, accuracy_polarity, accuracy_category,cost_train = sess.run([optimizer, category_accuracy , polarity_accuracy,final_loss], feed_dict={tf_X: np.asarray(x_train[index:index+batch_size]), tf_X_mask: np.asarray(train_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(train_binary_mask[index:index+batch_size]), tf_y_category:np.asarray(train_category_label[index:index+batch_size]), tf_y_polarity:np.asarray(train_polarity_label[index:index+batch_size]),keep_prob: 1.0 })
 
-            
+                print('category accuracy => %.3f, polarity_accuracy => %.3f, cost value => %.5f for step %d, learning_rate => %.5f' % (accuracy_category, accuracy_polarity ,cost_train, it, learning_rate.eval()))
+
+                loss_list.append(cost_train)
+                polarity_accuracy_list.append(accuracy_polarity)
+                category_accuracy_list.append(accuracy_category)
             
         saver.save(sess, '../ckpt/glove50_embedding_15000.ckpt')
 
+        plt.plot(polarity_accuracy_list)
+        axes = plt.gca()
+        axes.set_ylim([0,1.2])
+        plt.title('batch train polarity accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('step')
+        plt.savefig('polarity_accuracy.png')
+        plt.close()
 
+        plt.plot(category_accuracy_list)
+        axes = plt.gca()
+        axes.set_ylim([0,1.2])
+        plt.title('batch train category accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('step')
+        plt.savefig('category_accuracy.png')
+        plt.close()
+
+        plt.plot(loss_list)
+        axes = plt.gca()
+        axes.set_ylim([0,200])
+        plt.title('batch train loss')
+        plt.ylabel('loss')
+        plt.xlabel('step')
+        plt.savefig('loss.png')
+        plt.close()
 
 
 
