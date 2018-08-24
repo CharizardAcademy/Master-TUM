@@ -58,8 +58,8 @@ embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/gl
 # manually set flags here
 def set_flag():
     flag_domain = 'Restaurant' # Organic, Restaurant etc
-    flag_train = True
-    flag_test = False
+    flag_train = False
+    flag_test = True
     flag_uni_sent_embedding = True
     flag_aspect = 'category'# term or category
     return flag_domain, flag_train, flag_test, flag_uni_sent_embedding, flag_aspect
@@ -234,12 +234,16 @@ with tf.device('/device:GPU:0'):
         # output_feature has shape [?, max_sent_length, 3]
         cross_entropy_target = tf.reduce_mean(tf.multiply(tf.nn.softmax_cross_entropy_with_logits(logits=output_feature, labels=y_target_labels),  tf_X_mask))
         target_prediction = tf.argmax(tf.nn.softmax(output_feature), 2)
+        #
         target_correct_prediction = tf.reduce_sum(tf.multiply(tf.cast(tf.equal(target_prediction,   tf_y_target), tf.float32), tf_X_binary_mask))
-
-        TP_t = tf.count_nonzero(target_prediction*tf_y_target)
-        TN_t = tf.count_nonzero((target_prediction-1)*(tf_y_target-1))
-        FP_t = tf.count_nonzero(target_prediction*(tf_y_target-1))
-        FN_t = tf.count_nonzero((target_prediction-1)*tf_y_target)
+        y_target_labels = tf.cast(y_target_labels, tf.float32)
+        #target_prediction = tf.cast(target_prediction, tf.float32)
+        target_prediction = tf.one_hot(target_prediction, 3, on_value=1.0, off_value=0.0, axis=-1)
+        
+        TP_t = tf.count_nonzero(target_prediction*y_target_labels)
+        TN_t = tf.count_nonzero((target_prediction-1)*(y_target_labels-1))
+        FP_t = tf.count_nonzero(target_prediction*(y_target_labels-1))
+        FN_t = tf.count_nonzero((target_prediction-1)*y_target_labels)
 
         target_accuracy = (TP_t+TN_t)/(TP_t+FN_t+TN_t+FP_t)
         target_precision = TP_t/(TP_t+FP_t)
@@ -343,6 +347,7 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         loss_list = []
         polarity_accuracy_list = []
         category_accuracy_list = []
+        target_accuracy_list = []
         valid_loss = []
 
         for it in range(TRAINING_ITERATIONS):
@@ -361,8 +366,19 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
                 tf_y_target:np.asarray(train_target_label[index:index+batch_size]),
                 tf_y_polarity:np.asarray(train_polarity_label[index:index+batch_size]), 
                 keep_prob: 1.0 })
-            
+
+                accuracy_target = correct_prediction_target/np.sum(np.asarray(train_binary_mask[index:index+batch_size]))
                 print('target accuracy => %.3f, polarity_accuracy => %.3f, cost value => %.5f for step %d, learning_rate => %.5f' % (correct_prediction_target/np.sum(np.asarray(train_binary_mask[index:index+batch_size])), accuracy_polarity ,cost_train, it, learning_rate.eval()))
+
+                loss_list.append(cost_train)
+                polarity_accuracy_list.append(accuracy_polarity)
+                target_accuracy_list.append(accuracy_target)
+
+                if(it%50==0):
+                    loss_valid = sess.run(final_loss, feed_dict={tf_X: np.asarray(x_valid[index_valid:index_valid+batch_size]), tf_X_mask: np.asarray(valid_mask[index_valid:index_valid+batch_size]), tf_X_binary_mask: np.asarray(valid_binary_mask[index_valid:index_valid+batch_size]), tf_universal_X: np.asarray(valid_uni_embedding[index_valid:index_valid+batch_size]), tf_y_target:np.asarray(valid_target_label[index_valid:index_valid+batch_size]), tf_y_polarity:np.asarray(valid_polarity_label[index_valid:index_valid+batch_size]),keep_prob: 1.0 })
+
+                    print('valid loss => %.3f' % loss_valid)
+                    valid_loss.append(loss_valid)
 
 
             if(flag_aspect=='category'):
@@ -391,14 +407,24 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         plt.savefig('polarity_accuracy.png')
         plt.close()
 
-        plt.plot(category_accuracy_list)
-        axes = plt.gca()
-        axes.set_ylim([0,1.2])
-        plt.title('batch train category accuracy')
-        plt.ylabel('accuracy')
-        plt.xlabel('step')
-        plt.savefig('category_accuracy.png')
-        plt.close()
+        if(flag_aspect=='category'):
+            plt.plot(category_accuracy_list)
+            axes = plt.gca()
+            axes.set_ylim([0,1.2])
+            plt.title('batch train category accuracy')
+            plt.ylabel('accuracy')
+            plt.xlabel('step')
+            plt.savefig('category_accuracy.png')
+            plt.close()
+        elif(flag_aspect=='term'):
+            plt.plot(target_accuracy_list)
+            axes = plt.gca()
+            axes.set_ylim([0,1.2])
+            plt.title('batch train target accuracy')
+            plt.ylabel('accuracy')
+            plt.xlabel('step')
+            plt.savefig('target_accuracy.png')
+            plt.close()
 
         plt.plot(loss_list)
         axes = plt.gca()
@@ -418,43 +444,21 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         plt.savefig('valid_loss.png')
         plt.close()
 
-        
-
     if(flag_test):
         #saver.restore(sess, '../ckpt/multiclass/Multiclass_category+polarity_Restaurant/with_uni_sent_embedding/glove50_embedding_15000.ckpt')
         saver.restore(sess,'../ckpt/glove50_embedding_15000.ckpt')
 
         if(flag_aspect=='term'):
-            correct_prediction_test = sess.run([target_correct_prediction], feed_dict={tf_X: np.asarray(x_test[index:index+batch_size]), tf_X_mask: np.asarray(test_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(test_binary_mask[index:index+batch_size]), tf_universal_X: np.asarray(uni_embedding[index:index+batch_size]), 
-            tf_y_target:np.asarray(test_target_label[index:index+batch_size]),
-            tf_y_polarity:np.asarray(test_polarity_label[index:index+batch_size]), 
-            keep_prob: 1.0 })
 
-            accuracy_polarity = sess.run([polarity_accuracy], feed_dict={tf_X: np.asarray(x_test[index:index+batch_size]), tf_X_mask: np.asarray(test_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(test_binary_mask[index:index+batch_size]), tf_universal_X: np.asarray(uni_embedding[index:index+batch_size]), tf_y_category:np.asarray(test_category_label[index:index+batch_size]), tf_y_polarity:np.asarray(test_polarity_label[index:index+batch_size]),keep_prob: 1.0 })
+            accuracy_target, accuracy_polarity, f1_target, f1_polarity = sess.run([target_accuracy, polarity_accuracy, target_f1, polarity_f1], feed_dict={tf_X: np.asarray(x_test), tf_X_mask: np.asarray(test_mask), tf_X_binary_mask: np.asarray(test_binary_mask), tf_universal_X: np.asarray(test_uni_embedding), tf_y_target:np.asarray(test_target_label), tf_y_polarity:np.asarray(test_polarity_label),keep_prob: 1.0 })
 
-            f1_target = sess.run([target_f1], feed_dict={tf_X: np.asarray(x_test[index:index+batch_size]), tf_X_mask: np.asarray(test_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(test_binary_mask[index:index+batch_size]), tf_universal_X: np.asarray(uni_embedding[index:index+batch_size]), 
-            tf_y_target:np.asarray(test_target_label[index:index+batch_size]),
-            tf_y_polarity:np.asarray(test_polarity_label[index:index+batch_size]), 
-            keep_prob: 1.0 })
-
-            f1_polarity = sess.run([polarity_f1], feed_dict={tf_X: np.asarray(x_test[index:index+batch_size]), tf_X_mask: np.asarray(test_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(test_binary_mask[index:index+batch_size]), tf_universal_X: np.asarray(uni_embedding[index:index+batch_size]), 
-            tf_y_target:np.asarray(test_target_label[index:index+batch_size]),
-            tf_y_polarity:np.asarray(test_polarity_label[index:index+batch_size]), 
-            keep_prob: 1.0 })
-
-            print('target accuracy => %.3f' % (correct_prediction_test)/np.sum(test_binary_mask))
+            print('target accuracy => %.3f' % (accuracy_target))
             print('polarity accuracy => %.3f' % (accuracy_polarity))
             print('F1 socre for target prediction => %.3f' % (f1_target))
             print('F1 score for polarity prediction => %.3f' % (f1_polarity))
 
         if(flag_aspect=='category'):
-            accuracy_polarity, accuracy_category = sess.run([category_accuracy , polarity_accuracy], feed_dict={tf_X: np.asarray(x_test[index:index+batch_size]), tf_X_mask: np.asarray(test_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(test_binary_mask[index:index+batch_size]), tf_universal_X: np.asarray(uni_embedding[index:index+batch_size]), tf_y_category:np.asarray(test_category_label[index:index+batch_size]), tf_y_polarity:np.asarray(test_polarity_label[index:index+batch_size]),keep_prob: 1.0 })
-
-            f1_category = sess.run([category_f1], feed_dict={tf_X: np.asarray(x_test[index:index+batch_size]), tf_X_mask: np.asarray(test_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(test_binary_mask[index:index+batch_size]), tf_universal_X: np.asarray(uni_embedding[index:index+batch_size]), tf_y_category:np.asarray(test_category_label[index:index+batch_size]),tf_y_polarity:np.asarray(test_polarity_label[index:index+batch_size]), 
-            keep_prob: 1.0 })
-
-            f1_polarity = sess.run([polarity_f1], feed_dict={tf_X: np.asarray(x_test[index:index+batch_size]), tf_X_mask: np.asarray(test_mask[index:index+batch_size]), tf_X_binary_mask: np.asarray(test_binary_mask[index:index+batch_size]), tf_universal_X: np.asarray(uni_embedding[index:index+batch_size]), tf_y_category:np.asarray(test_category_label[index:index+batch_size]),tf_y_polarity:np.asarray(test_polarity_label[index:index+batch_size]), 
-            keep_prob: 1.0 })
+            accuracy_polarity, accuracy_category, f1_category, f1_polarity = sess.run([category_accuracy , polarity_accuracy, category_f1, polarity_f1], feed_dict={tf_X: np.asarray(x_test), tf_X_mask: np.asarray(test_mask), tf_X_binary_mask: np.asarray(test_binary_mask), tf_universal_X: np.asarray(test_uni_embedding), tf_y_category:np.asarray(test_category_label), tf_y_polarity:np.asarray(test_polarity_label),keep_prob: 1.0 })
 
             print('category accuracy => %.3f' % (accuracy_category))
             print('polarity accuracy => %.3f' % (accuracy_polarity))
