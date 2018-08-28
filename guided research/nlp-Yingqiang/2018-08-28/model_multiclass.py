@@ -37,7 +37,7 @@ embedding_size = 50
 num_sentiment_label = 3 # postive, negative, neutral
 fc_hidden_size = 256
 lstm_hidden_size = 256 #lstm中前馈网络隐含层节点数,lstm输出为256维，可以自己指定
-TRAINING_ITERATIONS = 15000
+TRAINING_ITERATIONS = 5000
 num_lstm_layer = 1 # LSTM cell的纵向堆叠厚度,图上只有一层
 max_grad_norm = 5.0 # 最大梯度，超过此值的梯度将被裁剪
 LEARNING_RATE = 0.1
@@ -47,8 +47,8 @@ positive_weight = 1.0
 neutral_weight = 3.0
 label_dict = {'positive':2, 'neutral':1, 'negative':0}
 
-train_data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/train'
-test_data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/test'
+train_data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/train/'
+test_data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/test/'
 embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/glove.6B/glove.6B.50d.txt'
 
 
@@ -58,11 +58,12 @@ embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/gl
 # functions for constructing model
 # manually set flags here
 def set_flag():
-    flag_domain = 'Restaurant' # Organic, Restaurant, Laptop etc
+    flag_domain = 'Organic' # Organic, Restaurant, Laptop etc
     flag_train = True
     flag_test = False
     flag_uni_sent_embedding = True
-    flag_aspect = 'term'# term or category
+    flag_aspect = 'category'# term or category, term for Restaurant, category for Laptop and Organic
+    
     return flag_domain, flag_train, flag_test, flag_uni_sent_embedding, flag_aspect
 
 def data_split(data):
@@ -114,67 +115,59 @@ flag_domain, flag_train, flag_test, flag_uni_sent_embedding, flag_aspect = set_f
 word_dict, word_embedding = utils.load_embedding(embedding_dir)
 
 
-if(flag_domain=='Restaurant'):
-    # set path for universal sentence embedding
-    universal_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/universal_sentence_encoder/SemEval16_Restaurant/'
+# set path for universal sentence embedding
+universal_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/universal_sentence_encoder/' + flag_domain + '/' 
 
-    # compute max. sentence length
-    train_max_sent_len = utils.compute_max_sent_length(train_data_dir + '/SemEval16_Restaurant_Train.json')
-    test_max_sent_len = utils.compute_max_sent_length(test_data_dir + '/SemEval16_Restaurant_Test.json')
-    max_sent_len = max(train_max_sent_len, test_max_sent_len)
+train_max_sent_len = utils.compute_max_sent_length(train_data_dir  + flag_domain + '_Train.json')
+test_max_sent_len = utils.compute_max_sent_length(test_data_dir + flag_domain + '_Test.json')
+max_sent_len = max(train_max_sent_len, test_max_sent_len)
     
-    # read and split data
-    data_sentence, data_target, data_category, data_polarity  = utils.load_data(train_data_dir + "/SemEval16_Restaurant_Train.json")
-    train_data_sentence, valid_data_sentence = data_split(data_sentence)
-    train_data_target, valid_data_target = data_split(data_target)
-    train_data_category, valid_data_category = data_split(data_category)
-    train_data_polarity, valid_data_polarity = data_split(data_polarity)
+data_sentence, data_target, data_category, data_polarity  = utils.load_data(train_data_dir + flag_domain + '_Train.json')
 
-    test_data_sentence, test_data_target, test_data_category, test_data_polarity = utils.load_data(test_data_dir + "/SemEval16_Restaurant_Test.json")
-    
-    # process target label, mark the target with 1
+train_data_sentence, valid_data_sentence = data_split(data_sentence)
+train_data_target, valid_data_target = data_split(data_target)
+train_data_category, valid_data_category = data_split(data_category)
+train_data_polarity, valid_data_polarity = data_split(data_polarity)
+
+test_data_sentence, test_data_target, test_data_category, test_data_polarity = utils.load_data(test_data_dir + flag_domain + '_Test.json')
+
+
+if(flag_aspect=='term'):    
     target_label = utils.label_generator(data_sentence, data_target)
-    polarity_label = utils.polarity_label_generator(data_polarity)
-    category_label,num_category = utils.category_label_generator(data_category)
-
-    # split labels
     train_target_label, valid_target_label = data_split(target_label)
-    train_polarity_label, valid_polarity_label = data_split(polarity_label)
-    train_category_label, valid_category_label = data_split(category_label)
-
     test_target_label = utils.label_generator(test_data_sentence, test_data_target)
-    test_polarity_label = utils.polarity_label_generator(test_data_polarity)
-    test_category_label, test_num_category = utils.category_label_generator(test_data_category)
 
-    # process mask for training data
-    binary_mask = utils.binary_mask_generator(train_data_dir + '/SemEval16_Restaurant_Train.json', max_length=max_sent_len)
-    mask = utils.mask_generator(train_data_dir,flag_domain='Restaurant',max_length=max_sent_len)
+polarity_label = utils.polarity_label_generator(data_polarity)
+category_label,num_category = utils.category_label_generator(data_category)
+   
+train_polarity_label, valid_polarity_label = data_split(polarity_label)
+train_category_label, valid_category_label = data_split(category_label)
 
-    # split masks
-    train_binary_mask, valid_binary_mask = data_split(binary_mask)
-    train_mask, valid_mask = data_split(mask)
+test_polarity_label = utils.polarity_label_generator(test_data_polarity)
+test_category_label, test_num_category = utils.category_label_generator(test_data_category)
 
-    test_binary_mask = utils.binary_mask_generator(test_data_dir + '/SemEval16_Restaurant_Test.json',max_length=max_sent_len)
-    test_mask = utils.mask_generator(test_data_dir, flag_domain='Restaurant',max_length=max_sent_len)
+binary_mask = utils.binary_mask_generator(train_data_dir + flag_domain + '_Train.json', max_length=max_sent_len)
+mask = utils.mask_generator(train_data_dir,flag_domain=flag_domain, flag_train_or_test='Train', max_length=max_sent_len)
 
+    
+train_binary_mask, valid_binary_mask = data_split(binary_mask)
+train_mask, valid_mask = data_split(mask)
 
-    # compute number of samples
-    num_sample_train = len(train_data_sentence)
-    num_sample_valid = len(valid_data_sentence)
+test_binary_mask = utils.binary_mask_generator(test_data_dir + flag_domain + '_Test.json',max_length=max_sent_len)
+test_mask = utils.mask_generator(test_data_dir, flag_domain=flag_domain, flag_train_or_test='Test',max_length=max_sent_len)
 
+num_sample_train = len(train_data_sentence)
+num_sample_valid = len(valid_data_sentence)
 
+if(flag_uni_sent_embedding):
+    # load universal sentence embedding
+    uni_dict, uni_embedding = utils.load_embedding(universal_dir + 'Train/uni_sent_Train.txt')
+    #uni_embedding = uni_embedding[1:len(uni_embedding)]
+    train_uni_embedding, valid_uni_embedding = data_split(uni_embedding)
 
-    if(flag_uni_sent_embedding and flag_domain=='Restaurant'):
-        # load universal sentence embedding
-        uni_dict, uni_embedding = utils.load_embedding(universal_dir+'Train/uni_sent_Train_61.txt')
-        uni_embedding = uni_embedding[1:len(uni_embedding)]
-        train_uni_embedding, valid_uni_embedding = data_split(uni_embedding)
-
-        _, test_uni_embedding = utils.load_embedding(universal_dir + 'Test/uni_sent_Test_61.txt')
-        #test_uni_embedding = test_uni_embedding[1:len(test_uni_embedding)]
+    _, test_uni_embedding = utils.load_embedding(universal_dir + 'Test/uni_sent_Test.txt')
+    #test_uni_embedding = test_uni_embedding[1:len(test_uni_embedding)]
         
-        
-       
     
 ################################################################################
 
@@ -183,21 +176,19 @@ if(flag_domain=='Restaurant'):
 
 # high version of pylint may report a false positive here
 with tf.device('/device:GPU:0'):
-    if(flag_domain=='Restaurant'):
-        tf_X = tf.placeholder(tf.float32, shape=[None, max_sent_len, embedding_size],name='tf_X')
-        tf_X_mask = tf.placeholder(tf.float32, shape=[None, max_sent_len],name='tf_X_mask')
-        tf_X_binary_mask = tf.placeholder(tf.float32, shape=[None, max_sent_len],name='tf_X_binary_mask')
-        tf_y_polarity = tf.placeholder(tf.int64, shape=[None, 1],name='tf_y_polarity')
-        keep_prob = tf.placeholder(tf.float32)
-        if(flag_aspect=='term'):
-            tf_y_target = tf.placeholder(tf.int64, shape=[None, max_sent_len], name='tf_y_target')
-        if(flag_aspect=='category'):
-            tf_y_category = tf.placeholder(tf.int64, shape=[None, 1],name='tf_y_category')
-        if(flag_uni_sent_embedding):
-            tf_universal_X = tf.placeholder(tf.float32, shape=[None, max_sent_len],name='tf_universal_X')
+    tf_X = tf.placeholder(tf.float32, shape=[None, max_sent_len, embedding_size],name='tf_X')
+    tf_X_mask = tf.placeholder(tf.float32, shape=[None, max_sent_len],name='tf_X_mask')
+    tf_X_binary_mask = tf.placeholder(tf.float32, shape=[None, max_sent_len],name='tf_X_binary_mask')
+    tf_y_polarity = tf.placeholder(tf.int64, shape=[None, 1],name='tf_y_polarity')
+    keep_prob = tf.placeholder(tf.float32)
+    if(flag_aspect=='term'):
+        tf_y_target = tf.placeholder(tf.int64, shape=[None, max_sent_len], name='tf_y_target')
+    if(flag_aspect=='category'):
+        tf_y_category = tf.placeholder(tf.int64, shape=[None, 1],name='tf_y_category')
+    if(flag_uni_sent_embedding):
+        tf_universal_X = tf.placeholder(tf.float32, shape=[None, max_sent_len],name='tf_universal_X')
         
             
-
     #initialize fc input layer
     fcin_w = fcin_weight_init()
     fcin_b = fcin_bias_init()
@@ -348,20 +339,20 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
     x_test = utils.sent_represent_generator(test_data_sentence, word_embedding, word_dict)
 
     # modify the sentence vectors with fixed length of max_sent_length
-    if(flag_domain=='Restaurant'):
-        x_train = utils.sent_represent_padding(x_train, max_sent_length=max_sent_len, embedding_size=embedding_size)
-        x_test = utils.sent_represent_padding(x_test, max_sent_length=max_sent_len, embedding_size=embedding_size)
-        x_valid = utils.sent_represent_padding(x_valid, max_sent_length=max_sent_len, embedding_size=embedding_size)
-        train_binary_mask = utils.binary_mask_padding(train_binary_mask, max_sent_len)
-        test_binary_mask = utils.binary_mask_padding(test_binary_mask, max_sent_len)
-        valid_binary_mask = utils.binary_mask_padding(valid_binary_mask, max_sent_len)
-        train_mask = utils.mask_padding(train_mask, max_sent_len)
-        test_mask = utils.mask_padding(test_mask, max_sent_len)
-        valid_mask = utils.mask_padding(valid_mask, max_sent_len)
-        if(flag_aspect=='term'):
-            train_target_label = utils.label_padding(train_target_label, max_sent_len)
-            test_target_label = utils.label_padding(test_target_label, max_sent_len)
-            valid_target_label = utils.label_padding(valid_target_label, max_sent_len)
+    
+    x_train = utils.sent_represent_padding(x_train, max_sent_length=max_sent_len, embedding_size=embedding_size)
+    x_test = utils.sent_represent_padding(x_test, max_sent_length=max_sent_len, embedding_size=embedding_size)
+    x_valid = utils.sent_represent_padding(x_valid, max_sent_length=max_sent_len, embedding_size=embedding_size)
+    train_binary_mask = utils.binary_mask_padding(train_binary_mask, max_sent_len)
+    test_binary_mask = utils.binary_mask_padding(test_binary_mask, max_sent_len)
+    valid_binary_mask = utils.binary_mask_padding(valid_binary_mask, max_sent_len)
+    train_mask = utils.mask_padding(train_mask, max_sent_len)
+    test_mask = utils.mask_padding(test_mask, max_sent_len)
+    valid_mask = utils.mask_padding(valid_mask, max_sent_len)
+    if(flag_aspect=='term'):
+        train_target_label = utils.label_padding(train_target_label, max_sent_len)
+        test_target_label = utils.label_padding(test_target_label, max_sent_len)
+        valid_target_label = utils.label_padding(valid_target_label, max_sent_len)
 
     
     if(flag_train):
@@ -449,7 +440,7 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
 
         plt.plot(loss_list)
         axes = plt.gca()
-        axes.set_ylim([0,200])
+        axes.set_ylim([0,10])
         plt.title('batch train loss')
         plt.ylabel('loss')
         plt.xlabel('step')
@@ -458,7 +449,7 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
 
         plt.plot(valid_loss)
         axes = plt.gca()
-        axes.set_ylim([0,200])
+        axes.set_ylim([0,10])
         plt.title('batch valid loss')
         plt.ylabel('loss')
         plt.xlabel('step')
@@ -490,10 +481,6 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
 
 
 
-
-    
-
-    
 
 
 # functions polarity prediction

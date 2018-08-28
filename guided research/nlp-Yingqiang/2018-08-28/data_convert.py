@@ -135,7 +135,8 @@ def excel2json_category(jsonname, filepath):
     data_sentiments = []
 
     wb = load_workbook(filepath)
-    sheet = wb.get_sheet_by_name("comments2")
+    #sheet = wb.get_sheet_by_name("comments2")
+    sheet = wb['comments2']
     sentences = sheet["G"]
     entities = sheet["E"]
     attributes = sheet["F"]

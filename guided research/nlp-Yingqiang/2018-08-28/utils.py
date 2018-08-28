@@ -24,15 +24,22 @@ def sentence_tokenizer(filepath):
     for i in range(0,len(data)):
         data_dic = {}
         # remove punctuations in the sentence
-        for token in data[i]["sentence"]:
-            if token in all_punctuation:
-                data[i]["sentence"] = data[i]["sentence"].replace(token, ' ')
-        data_dic["sentence"] = word_tokenize(data[i]["sentence"])
+        try:
+            for token in data[i]["sentence"]:
+                if token in all_punctuation:
+                    data[i]["sentence"] = data[i]["sentence"].replace(token, ' ')
+            data_dic["sentence"] = word_tokenize(data[i]["sentence"])
+        except TypeError:
+            continue
         # remove punctuations in the target
-        for token in data[i]["target"]:
-            if token in all_punctuation:
-                data[i]["target"] = data[i]["target"].replace(token, ' ')
-        data_dic["target"] = word_tokenize(data[i]["target"]) 
+        try:
+            for token in data[i]["target"]:
+                if token in all_punctuation:
+                    data[i]["target"] = data[i]["target"].replace(token, ' ')
+            data_dic["target"] = word_tokenize(data[i]["target"]) 
+        except KeyError:
+            pass
+        
         data_dic["category"] = data[i]["category"]
         data_dic["polarity"] = data[i]["polarity"]
         data_tokenized.append(data_dic)
@@ -54,17 +61,21 @@ def binary_mask_generator(filepath, max_length):
     aspect_tag = np.zeros([len(data_tokenized), max_length])
     
     for i in range(0, len(data_tokenized)):
-       
-        aspect = data_tokenized[i]['target']
-        for j in range(0, len(data_tokenized[i]['target'])):
-            if(aspect[j] != 'NULL'):
-                try:
-                    aspect_index = data_tokenized[i]['sentence'].index(aspect[j])
-                    aspect_tag[i, aspect_index] = 1
-                except ValueError:
-                    continue 
-            else:
-                continue
+        try:
+            aspect = data_tokenized[i]['target']
+            for j in range(0, len(data_tokenized[i]['target'])):
+                if(aspect[j] != 'NULL'):
+                    try:
+                        aspect_index = data_tokenized[i]['sentence'].index(aspect[j])
+                        aspect_tag[i, aspect_index] = 1
+                    except ValueError:
+                        continue 
+                else:
+                    continue
+        except KeyError:
+            break
+
+        
         if(np.sum(aspect_tag[i,:])==0):
             aspect_tag[i,:] = 0.5
 
@@ -72,15 +83,10 @@ def binary_mask_generator(filepath, max_length):
 
 
 # this function generates a mask, 1 for positive words 2 for negative word and 3 for neutral word
-def mask_generator(filepath, flag_domain, max_length):
-    if(flag_domain == 'Restaurant'):
-        # tokenize the sentence 
-        try:
-            data_tokenized = sentence_tokenizer(filepath + '/SemEval16_Restaurant_Train.json')
-        except FileNotFoundError:
-            data_tokenized = sentence_tokenizer(filepath + '/SemEval16_Restaurant_Test.json')
-    elif(flag_domain == 'Organic'):
-        data_tokenized = sentence_tokenizer(filepath + '/Organic_Train.json')
+def mask_generator(filepath, flag_domain, flag_train_or_test, max_length):
+    # tokenize the sentence 
+    data_tokenized = sentence_tokenizer(filepath + flag_domain + '_' + flag_train_or_test + '.json')
+        
     
     # find the length of the longest sentence
     #longest_sentence_len = max([len(data_tokenized[i]['sentence']) for i in range(0, len(data_tokenized))])
@@ -271,7 +277,10 @@ def load_data(filepath):
     data_polarity = []
     for i in range(0,len(data)):
         data_sentence.append(data[i]['sentence'])
-        data_target.append(data[i]['target'])
+        try:
+            data_target.append(data[i]['target'])
+        except KeyError:
+            pass
         data_category.append(data[i]['category'])
         data_polarity.append(data[i]['polarity'])    
     return data_sentence, data_target, data_category, data_polarity
@@ -400,13 +409,13 @@ def category_label_generator(data_category):
 
 
 if __name__ == '__main__':
-    data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/test'
+    data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/train'
     #embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/glove.6B/glove.6B.50d.txt'
    
     #train_data_sentence, train_data_target, train_data_category, train_data_polarity  = load_data(data_dir+'/SemEval16_Restaurant_Train.json')
     
 
     
-    length = compute_max_sent_length(data_dir+'/SemEval16_Restaurant_Test.json')
+    length = compute_max_sent_length(data_dir+'/Organic_Train.json')
    
     print(length)
