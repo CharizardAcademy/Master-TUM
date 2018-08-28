@@ -6,29 +6,30 @@ import utils
 import numpy as np
 import re
 
-# use load_untokenized to load_data
+
 # universal sentence encoder works in CPU environment, not GPU, so make sure to load the sentence embeddings in CPU environment without GPU supports.
 def load_uni_sent_encoding(sentences):
     # first loading could take some minutes
     module_url = "https://tfhub.dev/google/universal-sentence-encoder/2"
     # Import the Universal Sentence Encoder's TF Hub module
     embed = hub.Module(module_url)
+    print('Loading done.')
 
     # Reduce logging output.
     tf.logging.set_verbosity(tf.logging.ERROR)
     with tf.Session() as sess:
         sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
         sentence_embeddings = sess.run(embed(sentences))
-        '''
-        with open('uni_sent_embedding.txt','w') as outfile:
+        print('embedding done')
+        with open('uni_sent_embedding_Hahaha.txt','w') as outfile:
             for i, embedding in enumerate(np.array(sentence_embeddings).tolist()):
                 temp = str(sentence_embeddings[i]).lstrip('[')
                 temp = temp.rstrip(']')
                 temp = temp.replace(',', '')
                 temp = re.sub(' +', ' ', temp)
                 outfile.writelines('sent'+str(i)+' '+temp + '\n')
-                
-        '''
+            print('write file done')
+       
     return sentence_embeddings
 
 # this function compress the universal sentence embedding to the wanted dimension with a simple 3 layer forward network
@@ -60,26 +61,23 @@ def universal_fcn(input_data, max_sent_length):
             #saver.restore(sess, '../ckpt/uni_sent_compress.ckpt')
             output = sess.run(prediction, feed_dict={tf_X:input_data})
             print(len(output[0]))
-            with open('uni_sent_embedding_compressed_Hahaha.txt','w') as outfile:
-                    for i, embedding in enumerate(np.array(output).tolist()):
-                        temp = str(embedding).lstrip('[')
-                        temp = temp.rstrip(']')
-                        temp = temp.replace(',', '')
-                        temp = re.sub(' +', ' ', temp)
-                        outfile.writelines('sent'+str(i)+' '+temp + '\n')
+            with open('uni_sent_embedding_compressed_This_is_me.txt','w') as outfile:
+              for i, embedding in enumerate(np.array(output).tolist()):
+                  temp = str(embedding).lstrip('[')
+                  temp = temp.rstrip(']')
+                  temp = temp.replace(',', '')
+                  temp = re.sub(' +', ' ', temp)
+                  outfile.writelines('sent'+str(i)+' '+temp + '\n')
             
 
 if __name__ == '__main__':
     
-    data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/test'
-   # _, word_embedding = utils.load_embedding('/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/universal_sentence_encoder/uni_sent_embedding.txt')
+    data_dir = '/Users/gaoyingqiang/Desktop/大学/Master/Guided-Research/nlp-Yingqiang/convert'
     # read training data
+    train_data_sentence, _, _,_  = utils.load_untokenized_data(data_dir + "/Organic_Train.json",flag_train_or_test='train')
+    print('data OK')
 
-    train_data_sentence, train_data_target, train_data_category, train_data_polarity  = utils.load_untokenized_data(data_dir + "/SemEval16_Restaurant_Test.json",flag_train_or_test='train')
-
-    word_embedding = load_uni_sent_encoding(train_data_sentence)
-
-    # process training label, mark the target with 1
+    sent_embedding = load_uni_sent_encoding(train_data_sentence[int(len(train_data_sentence)*0.8):len(train_data_sentence)])
+    universal_fcn(sent_embedding, 94)
     
-    
-    universal_fcn(word_embedding, 52)
+    #universal_fcn(sent_embedding, 74)
