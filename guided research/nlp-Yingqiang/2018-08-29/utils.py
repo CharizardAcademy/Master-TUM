@@ -409,12 +409,13 @@ def category_label_generator(data_category):
 
 
 if __name__ == '__main__':
-    data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/train'
+    data_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/convert/test'
     #embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/glove.6B/glove.6B.50d.txt'
    
-    train_data_sentence, train_data_target, train_data_category, train_data_polarity  = load_data(data_dir+'/Organic_Train.json')
-    print(len(train_data_sentence))
+    #train_data_sentence, train_data_target, train_data_category, train_data_polarity  = load_data(data_dir+'/Organic_Train.json')
     
-    #length = compute_max_sent_length(data_dir+'/Organic_Train.json')
+    
+    length = compute_max_sent_length(data_dir+'/Organic_Test.json')
+    print(length)
    
    

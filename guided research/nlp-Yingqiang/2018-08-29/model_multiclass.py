@@ -28,7 +28,7 @@ import tensorflow as tf
 
 # initialize model parameter
 
-batch_size = 128
+batch_size = 8
 decay = 0.85
 max_epoch = 5
 max_max_epoch = 10
@@ -58,7 +58,7 @@ embedding_dir = '/home/gaoyingqiang/Desktop/nlp-Yingqiang/nlp-Yingqiang/glove/gl
 # functions for constructing model
 # manually set flags here
 def set_flag():
-    flag_domain = 'Organic' # Organic, Restaurant, Laptop etc
+    flag_domain = 'Organic' # Organic, Restaurant, Laptop, RL, RLO 
     flag_train = False
     flag_test = True
     flag_uni_sent_embedding = True
@@ -481,7 +481,7 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
 
     if(flag_test):
         #saver.restore(sess, '../ckpt/multiclass/Multiclass_category+polarity_Restaurant/with_uni_sent_embedding/glove50_embedding_15000.ckpt')
-        saver.restore(sess,'../ckpt/glove50_embedding_5000.ckpt')
+        saver.restore(sess,'../ckpt/glove50_embedding_15000.ckpt')
 
         if(flag_aspect=='term'):
 
